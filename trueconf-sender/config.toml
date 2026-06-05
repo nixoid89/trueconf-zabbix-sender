@@ -1,0 +1,19 @@
+[server]
+host = "10.31.193.175"
+port = 8444
+verify_ssl = false
+
+[credentials]
+login = "test@ru532y.trueconf.name"
+password = "testtest"
+
+[email_mapping]
+from_domain = "ru532y.trueconf.name"
+to_domain = "ru532y.trueconf.name"
+
+[sender]
+log_level = "INFO"
+parse_mode = "text"
+connect_timeout = 30
+max_retries = 5
+retry_delay = 15

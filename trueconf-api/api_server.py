@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
+import json
+from pathlib import Path
+from datetime import datetime
+import time
+import os
+import logging
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+# Директория очереди
+QUEUE_DIR = Path("/app/queue")
+QUEUE_DIR.mkdir(exist_ok=True)
+
+class AlertMessage(BaseModel):
+    sendto: str
+    message: str
+
+@app.get("/health")
+async def health_check():
+    """Проверка работоспособности"""
+    queue_files = list(QUEUE_DIR.glob("*.json"))
+    return {
+        "status": "healthy",
+        "queue_size": len(queue_files),
+        "queue_files": [f.name for f in queue_files[:5]]
+    }
+
+@app.post("/send")
+async def send_alert(alert: AlertMessage):
+    """Принимает алерт от Zabbix и ставит в очередь"""
+    try:
+        logger.info(f"Received alert: sendto={alert.sendto}, message={alert.message[:50]}...")
+        
+        # Проверяем, что sendto не пустой
+        if not alert.sendto or alert.sendto == '{ALERT.SENDTO}':
+            logger.warning(f"Skipping test message with macro: {alert.sendto}")
+            return {"status": "skipped", "reason": "macro_not_resolved"}
+        
+        # Создаем файл задачи в формате, который ожидает trueconf_sender.py
+        task_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        task_file = QUEUE_DIR / f"{task_id}.json"
+        
+        # Важно: trueconf_ids должен быть СПИСКОМ!
+        task_data = {
+            "trueconf_ids": [alert.sendto],
+            "message": alert.message,
+            "parse_mode": "text",
+            "created_at": time.time()
+        }
+        
+        with open(task_file, 'w', encoding='utf-8') as f:
+            json.dump(task_data, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"✓ Task created: {task_file.name} for {alert.sendto}")
+        
+        return {
+            "status": "queued",
+            "task_id": task_id,
+            "recipient": alert.sendto,
+            "queue_file": task_file.name
+        }
+    
+    except Exception as e:
+        logger.error(f"Error processing alert: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/send_raw")
+async def send_alert_raw(request: Request):
+    """Альтернативный endpoint для отладки - принимает raw JSON"""
+    try:
+        body = await request.json()
+        logger.info(f"Raw request: {body}")
+        
+        sendto = body.get('sendto') or body.get('to') or body.get('recipient')
+        message = body.get('message') or body.get('text')
+        
+        if not sendto or not message:
+            return {"error": "Missing sendto or message", "received": body}
+        
+        task_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        task_file = QUEUE_DIR / f"{task_id}.json"
+        
+        task_data = {
+            "trueconf_ids": [sendto],
+            "message": message,
+            "parse_mode": "text",
+            "created_at": time.time()
+        }
+        
+        with open(task_file, 'w', encoding='utf-8') as f:
+            json.dump(task_data, f, ensure_ascii=False, indent=2)
+        
+        return {"status": "queued", "task_id": task_id}
+        
+    except Exception as e:
+        logger.error(f"Error: {e}", exc_info=True)
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    import uvicorn
+    logger.info("Starting TrueConf API Server on port 8081")
+    uvicorn.run(app, host="0.0.0.0", port=8081, log_level="info")

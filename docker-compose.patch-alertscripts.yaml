@@ -1,0 +1,27 @@
+services:
+  itmm-server:
+    volumes:
+      - ./env/alertscripts:/usr/lib/zabbix/alertscripts:z
+
+  trueconf-api:
+    container_name: trueconf-api
+    image: trueconf-api:local
+    networks:
+      - itmm_network
+    volumes:
+      - ./trueconf-data/queue:/app/queue:rw
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  trueconf-sender:
+    container_name: trueconf-sender
+    image: trueconf-sender:local
+    networks:
+      - itmm_network
+    volumes:
+      - ./trueconf-data/queue:/opt/trueconf-zabbix-sender/queue:rw
+      - ./trueconf-sender/config.toml:/opt/trueconf-zabbix-sender/config.toml:ro
+    restart: unless-stopped
+    depends_on:
+      - trueconf-api
