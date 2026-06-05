@@ -5,7 +5,8 @@ services:
 
   trueconf-api:
     container_name: trueconf-api
-    image: trueconf-api:local
+    #image: trueconf-api:local
+    image: nixoid89/trueconf-api:latest
     networks:
       - itmm_network
     volumes:
@@ -16,7 +17,8 @@ services:
 
   trueconf-sender:
     container_name: trueconf-sender
-    image: trueconf-sender:local
+    #image: trueconf-sender:local
+    image: nixoid89/trueconf-sender:latest
     networks:
       - itmm_network
     volumes:
