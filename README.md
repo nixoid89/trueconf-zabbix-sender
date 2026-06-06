@@ -120,7 +120,7 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
 ## Настройка окружения
 ### Измените файл .env.trueconf:
 
-    TRUECONF_HOST=10.31.193.175
+    TRUECONF_HOST=10.11.193.175
     TRUECONF_PORT=8444
     TRUECONF_VERIFY_SSL=false
     TRUECONF_LOGIN=bot@domain.trueconf.name
