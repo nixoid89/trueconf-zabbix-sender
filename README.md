@@ -1,6 +1,8 @@
 ## Описание
 
-   Интеграция для отправки уведомлений из **UDV-ITM (Zabbix)** в **TrueConf** через HTTP API с асинхронной обработкой очереди.
+   Интеграция для отправки уведомлений из **Zabbix (UDV-ITM)** в **TrueConf** через HTTP API с асинхронной обработкой очереди.
+
+<br/>
 
 ## 🚀 Возможности
 
@@ -11,8 +13,48 @@
 - ✅ Полная автономность (не требует интернета после сборки)
 - ✅ Docker-образы для production-окружения
 
-## 🏗 Архитектура
-...
+<br/>
+
+## 🏗 Архитектура отправки уведомлений
+
+```mermaid
+sequenceDiagram
+    participant Z as Zabbix Server
+    participant S as Alert Script
+    participant A as API Server (8081)
+    participant Q as Queue Directory
+    participant W as Worker Bot
+    participant T as TrueConf Server
+    participant C as Desktop Client
+
+    Z->>S: Триггер сработал
+    S->>A: POST /send
+    A->>Q: write task.json
+    A-->>S: 200 OK
+    S-->>Z: exit 0
+
+    loop Каждые 2 секунды
+        W->>Q: scan *.json
+    end
+    
+    W->>Q: read task.json
+    W->>T: authenticate
+    T-->>W: token
+    W->>T: create P2P chat
+    T-->>W: chat_id
+    W->>T: send message
+    T-->>W: delivered
+    
+    alt Успех
+        W->>Q: move to processed/
+    else Ошибка
+        W->>Q: move to error/
+    end
+    
+    T->>C: push notification
+```
+
+<br/>
 
 ## Структура проекта
     .
@@ -28,6 +70,8 @@
     └── env/
         └── alertscripts/
             └── send-trueconf-message.py
+
+<br/>
 
 ## 📁 Краткое описание файлов проекта
 
@@ -71,6 +115,7 @@
 ### 🔄 Взаимодействие файлов
 Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → trueconf_sender.py → TrueConf
 
+<br/>
 
 ## Настройка окружения
 ### Измените файл .env.trueconf:
@@ -83,7 +128,9 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
     TRUECONF_FROM_DOMAIN=company.ru
     TRUECONF_TO_DOMAIN=domain.trueconf.name
 
-# Настройка типа медиа в Zabbix
+<br/>
+
+## Настройка типа медиа в Zabbix
 
     Администрирование → Типы медиа → Создать тип медиа
     Имя: TrueConf
@@ -93,125 +140,7 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
         {ALERT.SENDTO}
         {ALERT.MESSAGE}
 
-
-
-
-
-
-
-
-
-
-🐛 Устранение неполадок
-=======================
-
-Проблема: Connection refused
-----------------------------
-Решение: Проверьте доступность TrueConf сервера:
-
-docker exec trueconf-sender curl -k https://trueconf-test:443
-
-
-Проблема: Missing required config keys
----------------------------------------
-Решение: Убедитесь, что переменные окружения переданы:
-
-docker exec trueconf-sender env | grep TRUECONF
-
-
-🧪 Отправка тестового сообщения через API
-=========================================
-
-Через curl на хосте:
---------------------
-curl -X POST http://localhost:8081/send \
-  -H "Content-Type: application/json" \
-  -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test from console"}'
-
-
-Из контейнера itmm-server:
---------------------------
-docker exec itmm-server curl -X POST http://trueconf-api:8081/send \
-  -H "Content-Type: application/json" \
-  -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test from container"}'
-
-
-Через Python (более детально):
------------------------------
-docker exec itmm-server python3 -c "
-import urllib.request
-import json
-
-url = 'http://trueconf-api:8081/send'
-data = json.dumps({
-    'sendto': 'test2@ru532y.trueconf.name',
-    'message': 'Hello from Python console!'
-}).encode()
-
-req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
-try:
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        print('Response:', resp.read().decode())
-except Exception as e:
-    print('Error:', e)
-"
-
-
-📂 Просмотр очереди
-===================
-
-Посмотреть файлы в очереди:
---------------------------
-ls -la /opt/mntr/trueconf-data/queue/
-
-
-Посмотреть содержимое последнего файла:
---------------------------------------
-cat /opt/mntr/trueconf-data/queue/*.json | tail -20
-
-
-📊 Мониторинг логов в реальном времени
-======================================
-
-В одном терминале смотрим логи sender:
---------------------------------------
-docker logs -f trueconf-sender
-
-В другом терминале отправляем сообщения:
-----------------------------------------
-curl -X POST http://localhost:8081/send \
-  -H "Content-Type: application/json" \
-  -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test"}'
-
-
-📈 Проверка статуса очереди
-===========================
-
-Получить информацию о очереди через API:
----------------------------------------
-curl -s http://localhost:8081/health | python3 -m json.tool
-
-Пример ответа:
--------------
-{
-    "status": "healthy",
-    "queue_size": 3,
-    "queue_files": [
-        "20260605_163845_123.json",
-        "20260605_163846_456.json",
-        "20260605_163847_789.json"
-    ]
-}
-
-
-🔄 Взаимодействие файлов
-=======================
-
-Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → trueconf_sender.py → TrueConf
-
-
-
-
+<br/>
  
 ## 🐛 Устранение неполадок
 
@@ -221,26 +150,36 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
 
 ```bash
 docker exec trueconf-sender curl -k https://trueconf-test:443
+```
+
+<br/>
 
 ## Проблема: Missing required config keys
 
-Решение: Убедитесь, что переменные окружения переданы:
+**Решение:** Убедитесь, что переменные окружения переданы:
+```bash
 docker exec trueconf-sender env | grep TRUECONF
+```
 
+<br/>
 
-
-# Отправка тестового сообщения через API
-## Через curl на хосте
+## 🧪Отправка тестового сообщения через API
+### Через curl на хосте
+```bash
 curl -X POST http://localhost:8081/send \
   -H "Content-Type: application/json" \
   -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test from console"}
+```
 
-## Или из контейнера itmm-server
+### Или из контейнера itmm-server
+```bash
 docker exec itmm-server curl -X POST http://trueconf-api:8081/send \
   -H "Content-Type: application/json" \
   -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test from container"}'
+```
 
-## Через Python (более детально)
+### Через Python (более детально)
+```python
 docker exec itmm-server python3 -c "
 import urllib.request
 import json
@@ -258,26 +197,41 @@ try:
 except Exception as e:
     print('Error:', e)
 "
+```
 
+<br/>
 
-# Просмотр очереди
-## Посмотреть файлы в очереди
+## 📂Просмотр очереди
+### Посмотреть файлы в очереди
+```bash
 ls -la /opt/mntr/trueconf-data/queue/
+```
 
-## Посмотреть содержимое последнего файла
+### Посмотреть содержимое последнего файла
+```bash
 cat /opt/mntr/trueconf-data/queue/*.json | tail -20
+```
 
+<br/>
 
-# Мониторинг логов в реальном времени
-## В одном окне смотрим логи sender
+## 📊Мониторинг логов в реальном времени
+### В одном окне смотрим логи sender
+```bash
 docker logs -f trueconf-sender
+```
 
-## В другом окне отправляем сообщения
+### В другом окне отправляем сообщения
+```bash
 curl -X POST http://localhost:8081/send \
   -H "Content-Type: application/json" \
   -d '{"sendto": "test2@ru532y.trueconf.name", "message": "Test"}'
+```
 
-# Проверка статуса очереди
-## Получить информацию о очереди через API
+<br/>
+
+## 📈Проверка статуса очереди
+### Получить информацию о очереди через API
+```bash
 curl -s http://localhost:8081/health | python3 -m json.tool
+```
 
