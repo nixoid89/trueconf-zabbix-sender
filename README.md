@@ -73,6 +73,24 @@ sequenceDiagram
 
 <br/>
 
+## Настройка окружения
+### Измените файл .env.trueconf:
+
+    TRUECONF_HOST=10.11.193.175
+    TRUECONF_PORT=8444
+    TRUECONF_VERIFY_SSL=false
+    TRUECONF_LOGIN=bot@domain.trueconf.name
+    TRUECONF_PASSWORD=your_password
+    TRUECONF_FROM_DOMAIN=company.ru
+    TRUECONF_TO_DOMAIN=domain.trueconf.name
+
+<br/>
+
+## Запуск
+```bash
+docker-compose up -d
+```
+
 ## 📁 Краткое описание файлов проекта
 
 ### 🐳 Docker-конфигурация
@@ -117,19 +135,6 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
 
 <br/>
 
-## Настройка окружения
-### Измените файл .env.trueconf:
-
-    TRUECONF_HOST=10.11.193.175
-    TRUECONF_PORT=8444
-    TRUECONF_VERIFY_SSL=false
-    TRUECONF_LOGIN=bot@domain.trueconf.name
-    TRUECONF_PASSWORD=your_password
-    TRUECONF_FROM_DOMAIN=company.ru
-    TRUECONF_TO_DOMAIN=domain.trueconf.name
-
-<br/>
-
 ## Настройка типа медиа в Zabbix
 
     Администрирование → Типы медиа → Создать тип медиа
@@ -139,6 +144,13 @@ Zabbix → send-trueconf-message.py → api_server.py → queue/*.json → truec
     Параметры скрипта:
         {ALERT.SENDTO}
         {ALERT.MESSAGE}
+
+## Настройка пользователя
+
+    Администрирование → Пользователи → Выбрать пользователя
+    Средства оповещения → Добавить
+    Тип: TrueConf
+    Отправлять на: username@company.ru
 
 <br/>
  
@@ -233,5 +245,18 @@ curl -X POST http://localhost:8081/send \
 ### Получить информацию о очереди через API
 ```bash
 curl -s http://localhost:8081/health | python3 -m json.tool
+```
+
+## Сборка Docker-образов (При необходимости)
+# Сборка образа для sender
+```bash
+cd trueconf-sender
+docker build -t trueconf-sender:local .
+```
+
+# Сборка образа для API
+```bash
+cd ../trueconf-data
+docker build -t trueconf-api:local
 ```
 
